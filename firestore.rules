@@ -1,0 +1,25 @@
+rules_version = '2';
+
+// Diese Regeln in der Firebase-Konsole unter
+// Firestore Database → Regeln einfügen und veröffentlichen.
+//
+// Die App verwendet anonyme Authentifizierung ohne Login-Bildschirm: jede
+// Person, die die App-URL öffnet, erhält automatisch eine anonyme,
+// gültige Sitzung. "request.auth != null" lässt deshalb praktisch jede
+// Besucherin/jeden Besucher der App lesen und schreiben — es gibt keine
+// Trennung zwischen einzelnen Personen, da jede anonyme Sitzung eine
+// eigene, zufällige Nutzer-ID hat, die sich zudem je nach Gerät/Browser
+// unterscheidet (eine Regel wie "nur eigene Einträge sehen" würde hier
+// nicht funktionieren). Diese Regel verhindert nur wahllosen Zugriff
+// durch Skripte oder Bots außerhalb der App.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /plants/{plantId} {
+      allow read, write: if request.auth != null;
+    }
+    match /recipes/{recipeId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
