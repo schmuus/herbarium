@@ -33,6 +33,8 @@
     --ochre: #a9791f;
     --slate: #556270;
     --plum: #8f5a76;
+    --wood: #7a5236;
+    --moss: #6b7a45;
     --line: rgba(36,48,31,0.18);
     --shadow: 0 8px 24px rgba(36,48,31,0.14), 0 2px 6px rgba(36,48,31,0.10);
   }
@@ -47,6 +49,8 @@
     --ochre:#d1a44e;
     --slate:#8b9baa;
     --plum:#c093ac;
+    --wood:#b98a63;
+    --moss:#9fb374;
     --line:rgba(234,229,212,0.16);
     --shadow: 0 10px 26px rgba(0,0,0,0.55), 0 3px 8px rgba(0,0,0,0.4);
   }
@@ -192,6 +196,8 @@
   .tag.heilpflanze{background:var(--green);}
   .tag.giftig{background:var(--rose);}
   .tag.bedingt_giftig{background:var(--plum);}
+  .tag.baum{background:var(--wood);}
+  .tag.strauch{background:var(--moss);}
   .tag.speisepflanze{background:var(--ochre);}
   .tag.zierpflanze{background:var(--slate);}
   .tag.sonstige{background:var(--ink-soft);}
@@ -331,6 +337,8 @@
   .tag-opt.on.heilpflanze{background:var(--green);color:#fff;border-color:var(--green);}
   .tag-opt.on.giftig{background:var(--rose);color:#fff;border-color:var(--rose);}
   .tag-opt.on.bedingt_giftig{background:var(--plum);color:#fff;border-color:var(--plum);}
+  .tag-opt.on.baum{background:var(--wood);color:#fff;border-color:var(--wood);}
+  .tag-opt.on.strauch{background:var(--moss);color:#fff;border-color:var(--moss);}
   .tag-opt.on.speisepflanze{background:var(--ochre);color:#fff;border-color:var(--ochre);}
   .tag-opt.on.zierpflanze{background:var(--slate);color:#fff;border-color:var(--slate);}
   .tag-opt.on.sonstige{background:var(--ink-soft);color:#fff;border-color:var(--ink-soft);}
@@ -457,6 +465,8 @@ const TAGS = [
   {key:'bedingt_giftig', label:'Bedingt giftig'},
   {key:'speisepflanze', label:'Speisepflanze'},
   {key:'zierpflanze', label:'Zierpflanze'},
+  {key:'baum', label:'Baum'},
+  {key:'strauch', label:'Strauch'},
   {key:'sonstige', label:'Sonstige'},
 ];
 
