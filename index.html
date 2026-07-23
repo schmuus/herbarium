@@ -280,7 +280,7 @@
   }
   .section textarea{
     width:100%;font-family:'Source Serif 4',serif;font-size:15px;line-height:1.55;
-    border:none;background:transparent;resize:vertical;min-height:56px;color:var(--ink);
+    border:none;background:transparent;resize:none;overflow:hidden;min-height:32px;color:var(--ink);
     padding:4px 6px;border-radius:3px;
   }
   .section textarea:focus{background:rgba(59,93,66,0.06);}
@@ -671,6 +671,11 @@ function buildCard(p){
   return card;
 }
 
+function autoResizeTextarea(el){
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
 function escapeHtml(s){
   return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -831,6 +836,10 @@ function openSheet(id){
     ...SECTION_DEFS.map(s=>s.key)];
   fields.forEach(key=>{
     const el = document.getElementById('f-'+key);
+    if(el.tagName === 'TEXTAREA'){
+      autoResizeTextarea(el);
+      el.addEventListener('input', ()=> autoResizeTextarea(el));
+    }
     el.addEventListener('input', debounce(async ()=>{
       p[key] = el.value;
       await savePlant(p);
