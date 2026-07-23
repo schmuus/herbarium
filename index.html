@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Herbarium — Digitale Pflanzensammlung</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2a4230">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Herbarium">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <script>
   (function(){
     try{
@@ -1155,6 +1162,14 @@ document.getElementById('importInput').addEventListener('change', async (e)=>{
   }
   e.target.value = '';
 });
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(err=>{
+      console.error('Service-Worker-Registrierung fehlgeschlagen:', err);
+    });
+  });
+}
 
 loadPlants();
 </script>
