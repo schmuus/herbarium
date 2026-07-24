@@ -141,12 +141,20 @@
     background:var(--paper-light);border:1px solid var(--line);border-radius:6px;
     padding:14px 18px;margin-bottom:20px;
   }
+  .season-details summary{
+    cursor:pointer; list-style:none;
+  }
+  .season-details summary::-webkit-details-marker{display:none;}
   .season-title{
     font-family:'Fraunces',serif;font-style:italic;font-size:16px;color:var(--green-dark);
-    margin-bottom:10px;
+    display:flex; align-items:baseline;
   }
+  .season-title::before{content:'▸ '; font-style:normal;}
+  .season-details[open] .season-title::before{content:'▾ ';}
+  .season-details[open] .season-title{margin-bottom:10px;}
+  .season-count{font-style:normal;font-size:13px;color:var(--ink-soft);margin-left:6px;}
   .season-month{font-family:'Space Mono',monospace;font-style:normal;font-size:11px;
-    color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;margin-left:6px;}
+    color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;margin-left:auto;}
   .season-chips{display:flex;gap:8px;flex-wrap:wrap;}
   .season-chip{
     font-family:'Source Serif 4',serif;font-size:13px;padding:6px 12px;border-radius:20px;
@@ -465,11 +473,16 @@
       --paper:#fff; --paper-light:#fff; --ink:#1a1a1a; --ink-soft:#444;
       --line:#ccc; --green:#3b5d42; --green-dark:#2a4230; --ochre:#a9791f; --rose:#8a3b3b;
     }
-    body *{visibility:hidden;}
-    #sheet, #sheet *{visibility:visible;}
+    html, body{height:auto !important; overflow:visible !important;}
+    .app{display:none !important;}
+    #overlay{
+      position:static !important; inset:auto !important; display:block !important;
+      background:none !important; backdrop-filter:none !important;
+      padding:0 !important; height:auto !important; overflow:visible !important;
+    }
     #sheet{
-      position:absolute; left:0; top:0; width:100%; max-width:none;
-      box-shadow:none; border:2px solid var(--ink); border-radius:0;
+      position:static !important; width:100% !important; max-width:none !important;
+      margin:0 !important; box-shadow:none; border:2px solid var(--ink); border-radius:0;
     }
     .sheet-header{border-bottom:2px solid var(--ink);}
     .sheet-header-actions, .sheet-footer, .photo-remove, .confuse-badge,
@@ -568,6 +581,7 @@ function ensureAuth(){
 let plants = [];
 let activeFilter = null;
 let showFavoritesOnly = false;
+let seasonOpen = false;
 let groupByFamily = false;
 let viewMode = 'grid';
 try{ viewMode = localStorage.getItem('herbarium-view') || 'grid'; }catch(e){}
@@ -697,11 +711,15 @@ function renderCurrentSeason(){
   }
   el.style.display = '';
   el.innerHTML = `
-    <div class="season-title">🌿 Was ist gerade dran?<span class="season-month">${MONTHS[m]}</span></div>
-    <div class="season-chips">
-      ${matches.map(p=>`<button type="button" class="season-chip" data-id="${p.id}">${escapeHtml(p.commonName)}</button>`).join('')}
-    </div>
+    <details class="season-details" ${seasonOpen ? 'open' : ''}>
+      <summary class="season-title">🌿 Was ist gerade dran? <span class="season-count">(${matches.length})</span><span class="season-month">${MONTHS[m]}</span></summary>
+      <div class="season-chips">
+        ${matches.map(p=>`<button type="button" class="season-chip" data-id="${p.id}">${escapeHtml(p.commonName)}</button>`).join('')}
+      </div>
+    </details>
   `;
+  const detailsEl = el.querySelector('.season-details');
+  detailsEl.addEventListener('toggle', ()=>{ seasonOpen = detailsEl.open; });
   el.querySelectorAll('.season-chip').forEach(chip=>{
     chip.onclick = ()=> openSheet(chip.dataset.id);
   });
