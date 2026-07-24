@@ -241,6 +241,9 @@
   }
   .fav-star:hover{background:rgba(30,26,18,0.8);}
   .fav-star.on{color:#f5c518;}
+  .fav-star.static{position:static;background:transparent;color:var(--ink-soft);}
+  .fav-star.static.on{color:#c9a227;}
+  .fav-star.static:hover{background:var(--paper);}
   .card-body{padding:14px 16px 12px;flex:1;display:flex;flex-direction:column;gap:4px;}
   .card-common{font-family:'Fraunces',serif;font-weight:600;font-size:19px;color:var(--ink);line-height:1.15;}
   .card-latin{font-style:italic;color:var(--ink-soft);font-size:13.5px;}
@@ -453,6 +456,32 @@
   }
   @media (prefers-reduced-motion: reduce){
     *{transition:none !important;}
+  }
+
+  .print-label{display:none;}
+
+  @media print{
+    :root,[data-theme="dark"]{
+      --paper:#fff; --paper-light:#fff; --ink:#1a1a1a; --ink-soft:#444;
+      --line:#ccc; --green:#3b5d42; --green-dark:#2a4230; --ochre:#a9791f; --rose:#8a3b3b;
+    }
+    body *{visibility:hidden;}
+    #sheet, #sheet *{visibility:visible;}
+    #sheet{
+      position:absolute; left:0; top:0; width:100%; max-width:none;
+      box-shadow:none; border:2px solid var(--ink); border-radius:0;
+    }
+    .sheet-header{border-bottom:2px solid var(--ink);}
+    .sheet-header-actions, .sheet-footer, .photo-remove, .confuse-badge,
+    .fav-star, .icon-btn, .photo-slot input[type=file]{display:none !important;}
+    .print-label{
+      display:flex; justify-content:space-between; align-items:baseline;
+      font-family:'Space Mono',monospace; font-size:10px; text-transform:uppercase;
+      letter-spacing:.08em; color:#555; padding:8px 32px 0; border-bottom:1px dashed #999;
+    }
+    .harvest-cell{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+    .tag{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+    @page{ margin:16mm; }
   }
 </style>
 </head>
@@ -814,6 +843,36 @@ function buildCard(p){
   return card;
 }
 
+function buildListRow(p){
+  const row = document.createElement('div');
+  row.className = 'list-row';
+  row.onclick = ()=> openSheet(p.id);
+  const thumbSrc = p.thumb || (p.photos && p.photos.length ? p.photos[0] : '');
+  row.innerHTML = `
+    <div class="list-thumb">${thumbSrc ? `<img src="${thumbSrc}" alt="${escapeHtml(p.commonName)}">` : leafSVG}</div>
+    <div class="list-main">
+      <div class="list-common">${escapeHtml(p.commonName || 'Unbenannt')}</div>
+      <div class="list-latin">${escapeHtml(p.latinName || '—')}</div>
+      <div class="list-tags">
+        ${(p.tags||[]).map(t=>`<span class="tag ${t}">${TAGS.find(x=>x.key===t)?.label||t}</span>`).join('')}
+        ${(p.customTags||[]).map(t=>`<span class="tag custom">#${escapeHtml(t)}</span>`).join('')}
+      </div>
+    </div>
+    <div class="list-actions">
+      ${(p.confusables||[]).length > 0 ? `<span class="list-confuse" title="Verwechslungsgefahr hinterlegt">⚠</span>` : ''}
+      <button type="button" class="fav-star static ${p.favorite?'on':''}" title="Favorit">${p.favorite?'★':'☆'}</button>
+    </div>
+  `;
+  row.querySelector('.fav-star').onclick = async (e)=>{
+    e.stopPropagation();
+    p.favorite = !p.favorite;
+    await savePlant(p);
+    renderFilters();
+    renderGrid();
+  };
+  return row;
+}
+
 function autoResizeTextarea(el){
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
@@ -896,7 +955,7 @@ function textSectionHtml(def, p){
   `;
 }
 
-function openSheet(id){
+function openSheetEdit(id){
   currentId = id;
   const p = plants.find(x=>x.id===id);
   const sheet = document.getElementById('sheet');
@@ -918,6 +977,7 @@ function openSheet(id){
       </div>
       <div class="sheet-header-actions">
         <button type="button" class="sheet-fav" id="sheetFav" aria-label="Favorit">${p.favorite?'★':'☆'}</button>
+        <button type="button" class="icon-btn small" id="doneBtn" title="Fertig – zur Ansicht">✓</button>
         <button class="sheet-close" id="closeSheet" aria-label="Schließen">✕</button>
       </div>
     </div>
@@ -956,11 +1016,13 @@ function openSheet(id){
 
     <div class="sheet-footer">
       <button class="danger" id="deletePlant">Beleg löschen</button>
-      <span class="save-hint" id="saveHint">Änderungen werden automatisch gespeichert</span>
+      <button type="button" id="doneBtnFooter">✓ Fertig – zur Ansicht</button>
     </div>
   `;
 
   document.getElementById('closeSheet').onclick = closeSheetFn;
+  document.getElementById('doneBtn').onclick = ()=> openSheet(p.id, 'read');
+  document.getElementById('doneBtnFooter').onclick = ()=> openSheet(p.id, 'read');
   document.getElementById('sheetFav').onclick = async ()=>{
     p.favorite = !p.favorite;
     document.getElementById('sheetFav').textContent = p.favorite ? '★' : '☆';
@@ -1051,6 +1113,155 @@ function openSheet(id){
 
   document.getElementById('overlay').classList.add('open');
   document.querySelectorAll('#sheet textarea').forEach(autoResizeTextarea);
+}
+
+function harvestCalendarReadHtml(p){
+  const rows = [];
+  if(asMonthArray(p.bluetezeit).length) rows.push({label:'Blütezeit', key:'bluetezeit', accent:true});
+  SAMMEL_FIELDS.forEach(f=>{
+    if(asMonthArray(p[f.key]).length) rows.push({label:f.shortLabel, key:f.key, accent:false});
+  });
+  if(rows.length === 0) return '';
+  return `
+    <div class="section harvest-section">
+      <label>Erntekalender</label>
+      <div class="harvest-calendar read-only">
+        <div class="harvest-header">
+          <span class="harvest-label"></span>
+          <div class="harvest-track header">
+            ${MONTHS.map(m=>`<span class="harvest-month-label">${m}</span>`).join('')}
+          </div>
+        </div>
+        ${rows.map(r=>`
+          <div class="harvest-row ${r.accent?'accent':''}">
+            <span class="harvest-label">${r.label}</span>
+            <div class="harvest-track">${harvestTrackHtml(r.key, p[r.key], r.accent)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function openSheetRead(id){
+  currentId = id;
+  const p = plants.find(x=>x.id===id);
+  const sheet = document.getElementById('sheet');
+
+  const hasText = v => !!(v && v.trim().length > 0);
+
+  const tagChips = [
+    ...(p.tags||[]).map(t=>`<span class="tag ${t}">${TAGS.find(x=>x.key===t)?.label||t}</span>`),
+    ...(p.customTags||[]).map(t=>`<span class="tag custom">#${escapeHtml(t)}</span>`)
+  ].join('');
+
+  const photosHtml = (p.photos && p.photos.length)
+    ? `<div class="read-photos">${p.photos.map(src=>`<img src="${src}" alt="${escapeHtml(p.commonName)}">`).join('')}</div>`
+    : '';
+
+  const calendarHtml = harvestCalendarReadHtml(p);
+
+  const sectionsHtml = SECTION_DEFS
+    .filter(def => hasText(p[def.key]))
+    .map(def => `
+      <div class="section ${def.warn?'warn':''}">
+        <label>${def.label}</label>
+        <div class="read-text">${escapeHtml(p[def.key])}</div>
+      </div>
+    `).join('');
+
+  const confusablesList = (p.confusables||[]).map(cid=>plants.find(x=>x.id===cid)).filter(Boolean);
+  const confusablesHtml = confusablesList.length ? `
+    <div class="section warn">
+      <label>Verwechslungsgefahr</label>
+      <div class="confusable-list">
+        ${confusablesList.map(o=>`<button type="button" class="confusable-jump-chip" data-id="${o.id}">${escapeHtml(o.commonName||'Unbenannt')}</button>`).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  const metaHtml = [
+    p.family ? `<div class="meta-item read"><label>Familie</label><div>${escapeHtml(p.family)}</div></div>` : '',
+    p.volksnamen ? `<div class="meta-item read"><label>Volkstümliche Namen</label><div>${escapeHtml(p.volksnamen)}</div></div>` : '',
+  ].join('');
+
+  const isEmpty = !photosHtml && !tagChips && !calendarHtml && !sectionsHtml && !confusablesHtml && !metaHtml;
+
+  sheet.innerHTML = `
+    <div class="sheet-header">
+      <div class="sheet-title-block">
+        <div class="read-common">${escapeHtml(p.commonName || 'Unbenannt')}</div>
+        ${p.latinName ? `<div class="read-latin">${escapeHtml(p.latinName)}</div>` : ''}
+      </div>
+      <div class="sheet-header-actions">
+        <button type="button" class="sheet-fav" id="sheetFav" aria-label="Favorit">${p.favorite?'★':'☆'}</button>
+        <button type="button" class="icon-btn small" id="printBtn" title="Als PDF exportieren / drucken">⎙</button>
+        <button type="button" class="icon-btn small" id="editBtn" title="Bearbeiten">✎</button>
+        <button class="sheet-close" id="closeSheet" aria-label="Schließen">✕</button>
+      </div>
+    </div>
+
+    <div class="print-label">
+      <span>Herbarium — Sammlungsbeleg</span>
+      <span id="printDate"></span>
+    </div>
+
+    ${metaHtml ? `<div class="sheet-meta-row">${metaHtml}</div>` : ''}
+    ${photosHtml}
+    ${tagChips ? `<div class="read-tags">${tagChips}</div>` : ''}
+
+    <div class="sections">
+      ${calendarHtml}
+      ${sectionsHtml}
+      ${confusablesHtml}
+    </div>
+
+    ${isEmpty ? `<div class="empty-state" style="margin:20px 32px 28px;">
+      <span class="big">Noch keine Details.</span>
+      Tippe auf „Bearbeiten", um Merkmale, Heilwirkung &amp; mehr zu ergänzen.
+    </div>` : ''}
+
+    <div class="sheet-footer">
+      <button class="danger" id="deletePlant">Beleg löschen</button>
+      <button type="button" id="printBtnFooter">⎙ Als PDF exportieren</button>
+      <button type="button" id="editBtnFooter">✎ Bearbeiten</button>
+    </div>
+  `;
+
+  document.getElementById('closeSheet').onclick = closeSheetFn;
+  document.getElementById('editBtn').onclick = ()=> openSheet(p.id, 'edit');
+  document.getElementById('editBtnFooter').onclick = ()=> openSheet(p.id, 'edit');
+  const doPrint = ()=>{
+    const dateEl = document.getElementById('printDate');
+    if(dateEl) dateEl.textContent = new Date().toLocaleDateString('de-DE', {year:'numeric', month:'long', day:'numeric'});
+    window.print();
+  };
+  document.getElementById('printBtn').onclick = doPrint;
+  document.getElementById('printBtnFooter').onclick = doPrint;
+  document.getElementById('sheetFav').onclick = async ()=>{
+    p.favorite = !p.favorite;
+    document.getElementById('sheetFav').textContent = p.favorite ? '★' : '☆';
+    await savePlant(p);
+    renderFilters(); renderGrid();
+  };
+  document.getElementById('deletePlant').onclick = async ()=>{
+    if(confirm(`„${p.commonName}" wirklich löschen?`)){
+      await deletePlantStorage(p.id);
+      plants = plants.filter(x=>x.id!==p.id);
+      closeSheetFn();
+      renderFilters(); renderGrid();
+    }
+  };
+  document.querySelectorAll('.confusable-jump-chip').forEach(btn=>{
+    btn.onclick = ()=> openSheet(btn.dataset.id, 'read');
+  });
+
+  document.getElementById('overlay').classList.add('open');
+}
+
+function openSheet(id, mode){
+  if(mode === 'edit') openSheetEdit(id);
+  else openSheetRead(id);
 }
 
 function renderCustomTags(p){
@@ -1258,7 +1469,7 @@ document.getElementById('addBtn').addEventListener('click', async ()=>{
   plants.unshift(p);
   await savePlant(p);
   renderFilters(); renderGrid();
-  openSheet(p.id);
+  openSheet(p.id, 'edit');
 });
 
 document.getElementById('search').addEventListener('input', renderGrid);
@@ -1271,6 +1482,24 @@ document.getElementById('sortSelect').addEventListener('change', (e)=>{
   sortMode = e.target.value;
   renderGrid();
 });
+
+function updateViewToggleButtons(){
+  document.getElementById('viewGridBtn').classList.toggle('active', viewMode === 'grid');
+  document.getElementById('viewListBtn').classList.toggle('active', viewMode === 'list');
+}
+document.getElementById('viewGridBtn').addEventListener('click', ()=>{
+  viewMode = 'grid';
+  try{ localStorage.setItem('herbarium-view', 'grid'); }catch(e){}
+  updateViewToggleButtons();
+  renderGrid();
+});
+document.getElementById('viewListBtn').addEventListener('click', ()=>{
+  viewMode = 'list';
+  try{ localStorage.setItem('herbarium-view', 'list'); }catch(e){}
+  updateViewToggleButtons();
+  renderGrid();
+});
+updateViewToggleButtons();
 
 const themeToggle = document.getElementById('themeToggle');
 function applyThemeButton(){
